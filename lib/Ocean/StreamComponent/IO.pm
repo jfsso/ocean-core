@@ -351,6 +351,18 @@ sub on_protocol_failed_http_auth {
     $self->close_with_http_handshake_error(401, 'Unauthorized');
 }
 
+sub on_protocol_completed_irc_auth {
+    my ($self, $params) = @_;
+    return if $self->[IS_CLOSING];
+    $self->[ENCODER]->send_irc_auth_success($params);
+}
+
+sub on_protocol_failed_irc_auth {
+    my ($self, $type) = @_;
+    return if $self->[IS_CLOSING];
+    $self->[ENCODER]->send_irc_auth_failure($type);
+}
+
 sub on_protocol_bound_jid {
     my ($self, $id, $host, $result) = @_;
     return if $self->[IS_CLOSING];
