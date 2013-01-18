@@ -1,4 +1,4 @@
-package Ocean::StreamComponent::IO::Decoder::JSON;
+package Ocean::StreamComponent::IO::Decoder::IRC;
 
 use strict;
 use warnings;
@@ -15,6 +15,8 @@ use Ocean::Constants::StanzaErrorType;
 use Ocean::Constants::StanzaErrorCondition;
 use Ocean::Constants::StreamErrorType;
 use Ocean::Constants::WebSocketOpcode;
+
+use Ocean::IRC::StanzaClassifier;
 
 use constant {
     DELEGATE => 0,

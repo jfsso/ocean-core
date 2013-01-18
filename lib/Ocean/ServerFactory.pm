@@ -50,6 +50,7 @@ sub create_server {
 
 my %COMPONENT_FACTORY_MAP = (
     'xmpp'           => 'Ocean::ServerComponentFactory::Default',
+    'irc'            => 'Ocean::ServerComponentFactory::IRC',
     'websocket'      => 'Ocean::ServerComponentFactory::WebSocket',
     'http-websocket' => 'Ocean::ServerComponentFactory::HTTPBinding::WebSocket',
     'http-sse'       => 'Ocean::ServerComponentFactory::HTTPBinding::SSE',

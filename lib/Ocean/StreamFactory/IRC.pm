@@ -15,8 +15,8 @@ sub create_stream {
     return Ocean::Stream->new(
         id => $client_id,
         io => Ocean::StreamComponent::IO->new(
-            decoder => Ocean::StreamComponent::IO::IRC::Default->new,
-            encoder => Ocean::StreamComponent::IO::IRC::Default->new,
+            decoder => Ocean::StreamComponent::IO::Decoder::IRC->new,
+            encoder => Ocean::StreamComponent::IO::Encoder::IRC->new,
             socket  => $client_socket,
         ),
     );

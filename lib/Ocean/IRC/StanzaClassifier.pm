@@ -28,7 +28,7 @@ sub classify {
         return Ocean::Constants::EventType::LEAVE_ROOM_PRESENCE;
     } elsif ($command eq 'INVITE') {
         return Ocean::Constants::EventType::ROOM_INVITATION;
-    } elsif ($commadn eq 'NAMES') {
+    } elsif ($command eq 'NAMES') {
         return Ocean::Constants::EventType::ROOM_MEMBERS_LIST_REQUEST;
     } elsif ($command eq 'AWAY') {
         return Ocean::Constants::EventType::BROADCAST_PRESENCE;
@@ -39,3 +39,5 @@ sub classify {
     }
     return;
 }
+
+1;
