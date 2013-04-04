@@ -11,6 +11,9 @@ use Ocean::Config;
 use Ocean::Constants::StreamErrorType;
 use Ocean::Stanza::DeliveryRequest::MessageError;
 use Ocean::Stanza::DeliveryRequest::IQError;
+use Ocean::StreamComponent::IO::Encoder::JSON::SSE;
+use Ocean::StreamComponent::IO::Encoder::JSON::WebSocket;
+use Ocean::StreamComponent::IO::Encoder::JSON::XHR;
 
 use constant {
     STREAM     => 0,
@@ -89,11 +92,30 @@ sub _handle_client_event_error {
     }
 }
 
-
 # DECODER EVENTS
+sub _setup_encoder {
+    my ($self, $type) = @_;
+
+    $self->_release_encoder();
+
+    if ($type eq 'websocket') {
+        $self->[ENCODER] = Ocean::StreamComponent::IO::Encoder::JSON::WebSocket->new;
+    } elsif ($type eq 'xhr') {
+        $self->[ENCODER] = Ocean::StreamComponent::IO::Encoder::JSON::XHR->new;
+    } elsif ($type eq 'sse') {
+        $self->[ENCODER] = Ocean::StreamComponent::IO::Encoder::JSON::SSE->new;
+    }
+
+    $self->_set_encoder_events($self->[ENCODER]);
+    $self->[ENCODER]->initialize();
+}
+
 sub _set_decoder_events {
     my ($self, $decoder) = @_;
     $decoder->set_delegate($self);
+    $decoder->on_protocol_detected(sub {
+        $self->_setup_encoder(@_);
+    });
     return $decoder;
 }
 
@@ -572,21 +594,42 @@ sub on_socket_eof {
 # to avoid cyclic-reference
 sub release {
     my $self = shift;
+    $self->_release_stream();
+    $self->_release_encoder();
+    $self->_release_decoder();
+    $self->_release_socket();
+}
+
+sub _release_stream {
+    my $self = shift;
     if ($self->[STREAM]) {
         $self->[STREAM] = undef;
     }
+}
+
+sub _release_encoder {
+    my $self = shift;
     if ($self->[ENCODER]) {
-        $self->[ENCODER]->release(); 
+        $self->[ENCODER]->release();
         $self->[ENCODER] = undef;
     }
+}
+
+sub _release_decoder {
+    my $self = shift;
     if ($self->[DECODER]) {
-        $self->[DECODER]->release(); 
+        $self->[DECODER]->release();
         $self->[DECODER] = undef;
     }
+}
+
+sub _release_socket {
+    my $self = shift;
     if ($self->[SOCKET]) {
-        $self->[SOCKET]->release(); 
+        $self->[SOCKET]->release();
         $self->[SOCKET] = undef;
     }
 }
+
 
 1;

@@ -10,7 +10,7 @@ use Ocean::ServerComponent::Listener::Stub;
 use Ocean::ServerComponent::Daemonizer::Null;
 use Ocean::CommonComponent::SignalHandler::Stub;
 use Ocean::HTTPBinding::StreamManager;
-use Ocean::HTTPBinding::StreamFactory::XHR;
+use Ocean::HTTPBinding::StreamFactory::Default;
 use Ocean::Util::SASL::PLAIN qw(build_sasl_plain);
 use Ocean::JID;
 use Ocean::CommonComponent::Timer::Stub;
@@ -62,7 +62,7 @@ my $listener = Ocean::ServerComponent::Listener::Stub->new(
     timeout  => $conf->get(server => q{timeout}),
 );
 
-my $builder         = Ocean::HTTPBinding::StreamFactory::XHR->new;
+my $builder         = Ocean::HTTPBinding::StreamFactory::Default->new;
 my $daemonizer      = Ocean::ServerComponent::Daemonizer::Null->new;
 my $signal_handler  = Ocean::CommonComponent::SignalHandler::Stub->new;
 my $stream_manager  = Ocean::HTTPBinding::StreamManager->new(
@@ -87,7 +87,7 @@ $server->start();
 sub build_http_header {
     my (%params) = @_;
     $params{method} ||= 'GET';
-    $params{path}   ||= '/';
+    $params{path}   ||= '/xhr/';
     $params{host}   ||= 'sse.example.org';
     $params{origin} ||= 'http://example.org';
     $params{port}   ||= '80';
@@ -113,6 +113,19 @@ EOF
 
     push(@lines, ("", ""));
     return join("\r\n", @lines);
+}
+
+INVALID_PATH: {
+    # SETUP dummy client1
+    my $dummy_fd0 = q{dummy_id_0};
+    my $client0 = $listener->emulate_accept($dummy_fd0);
+    my @client0_events;
+    $client0->client_on_read(sub { push(@client0_events, $_[0]) });
+
+    my $header = &build_http_header(path => '/some_invalid_path/');
+    $client0->emulate_client_write($header);
+    like($client0_events[0], qr|^HTTP/1.1 400 Bad Request|, 'bad request');
+    ok($client0->is_closed(), "connection should be closed");
 }
 
 INVALID_DOMAIN: {

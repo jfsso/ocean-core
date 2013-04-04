@@ -15,14 +15,17 @@ use Ocean::Constants::StanzaErrorType;
 use Ocean::Constants::StanzaErrorCondition;
 use Ocean::Constants::StreamErrorType;
 use Ocean::Constants::WebSocketOpcode;
-
 use Ocean::JSON::StanzaClassifier;
 use Ocean::JSON::StanzaParserStore;
+use Ocean::StreamComponent::IO::Decoder::JSON::SSE;
+use Ocean::StreamComponent::IO::Decoder::JSON::XHR;
+use Ocean::StreamComponent::IO::Decoder::JSON::WebSocket;
 
 use constant {
     DELEGATE => 0,
     PROTOCOL => 1,
     JSON     => 2,
+    ON_PROTOCOL_DETECTED => 3,
 };
 
 sub new {
@@ -31,19 +34,20 @@ sub new {
         undef,  # DELEGATE
         undef,  # PROTOCOL
         undef,  # JSON
+        sub {}, # ON_PROTOCOL_DETECTED
     ], $class;
 
-    $self->[PROTOCOL] = $args{protocol};
+    $self->[PROTOCOL] = $args{protocol} || undef;
     $self->[JSON]     = JSON::XS->new->utf8(1);
 
-    $self->_initialize_protocol();
+    $self->_initialize_protocol() if defined $self->[PROTOCOL];
     return $self;
 }
 
 sub _initialize_protocol {
     my $self = shift;
     $self->[PROTOCOL]->on_handshake(sub {
-        $self->[DELEGATE]->on_received_handshake(@_);    
+        $self->[DELEGATE]->on_received_handshake(@_);
     });
     $self->[PROTOCOL]->on_read_frame(sub {
         $self->_handle_frame(@_);
@@ -184,14 +188,88 @@ sub release_delegate {
         if $self->[DELEGATE];
 }
 
+sub on_protocol_detected {
+    my ($self, $callback) = @_;
+    $self->[ON_PROTOCOL_DETECTED] = $callback;
+}
+
 sub feed {
     my ($self, $data) = @_;
+
+    if ($self->[PROTOCOL]) {
+        $self->[PROTOCOL]->parse_more($data);
+    } else {
+        $self->_detect_protocol($data);
+    }
+}
+
+sub _detect_protocol {
+    my ($self, $data) = @_;
+
+    return unless length($data) > 0;
+
+    my $protocol = $self->_detect_protocol_from_request($data);
+    # TODO need buffer?
+    return unless $protocol;
+
+    $self->release_protocol();
+
+    if ($protocol eq 'websocket') {
+        $self->[PROTOCOL] = Ocean::StreamComponent::IO::Decoder::JSON::WebSocket->new
+    } elsif ($protocol eq 'xhr') {
+        $self->[PROTOCOL] = Ocean::StreamComponent::IO::Decoder::JSON::XHR->new
+    } elsif ($protocol eq 'sse') {
+        $self->[PROTOCOL] = Ocean::StreamComponent::IO::Decoder::JSON::SSE->new
+    }
+
+    $self->_initialize_protocol();
+
+    $self->[ON_PROTOCOL_DETECTED]->($protocol);
     $self->[PROTOCOL]->parse_more($data);
+}
+
+sub _detect_protocol_from_request {
+    my ($self, $data) = @_;
+
+    my $request = ($data =~ /\A(.*?)$/ms)[0];
+
+    if ($request) {
+        my ($method, $request_uri, $http_version) = split(/\s/, $request);
+
+        if ($request_uri =~ /\A\/ws/) {
+            return 'websocket';
+        } elsif ($request_uri =~ /\A\/xhr/) {
+            return 'xhr';
+        } elsif ($request_uri =~ /\A\/sse/) {
+            return 'sse';
+        }
+    }
+
+    Ocean::Error::ProtocolError->throw(
+        type => Ocean::Constants::StreamErrorType::INTERNAL_SERVER_ERROR,
+        message =>
+            q{invalid protocol specified},
+    );
 }
 
 sub release {
     my $self = shift;
     $self->release_delegate();
+    $self->release_on_protocol_detected();
+    $self->release_protocol();
+}
+
+sub release_on_protocol_detected {
+    my $self = shift;
+
+    if ($self->[ON_PROTOCOL_DETECTED]) {
+        $self->[ON_PROTOCOL_DETECTED] = undef;
+    }
+}
+
+sub release_protocol {
+    my $self = shift;
+
     if ($self->[PROTOCOL]) {
         $self->[PROTOCOL]->release();
         $self->[PROTOCOL] = undef;

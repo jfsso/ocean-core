@@ -1,4 +1,4 @@
-package Ocean::StreamComponent::IO::Encoder::SSE;
+package Ocean::StreamComponent::IO::Encoder::JSON::SSE;
 
 use strict;
 use warnings;

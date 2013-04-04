@@ -1,4 +1,4 @@
-package Ocean::StreamComponent::IO::Encoder::WebSocket;
+package Ocean::StreamComponent::IO::Encoder::JSON::WebSocket;
 
 use strict;
 use warnings;

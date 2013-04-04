@@ -15,6 +15,10 @@ sub release_delegate {
     Ocean::Error::AbstractMethod->throw;
 }
 
+sub on_protocol_detected {
+    my ($self, $callback) = @_;
+}
+
 sub initialize {
     my $self = shift;
     Ocean::Error::AbstractMethod->throw;
